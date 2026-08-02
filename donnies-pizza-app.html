@@ -8,6 +8,8 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.5/babel.min.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
 <style>
   :root{
     --rojo: #B21829;
@@ -72,7 +74,28 @@
 <body>
 <div id="root"></div>
 <script type="text/babel">
-const {useState, useMemo, useEffect} = React;
+const {useState, useMemo, useEffect, useRef} = React;
+
+// ---------- Firebase (sincroniza los datos entre todos los dispositivos) ----------
+const firebaseConfig = {
+  apiKey: "AIzaSyBqqltdwJLkArC4-XI9_aUtYDgYmX6fCtE",
+  authDomain: "donnies-pizza-app.firebaseapp.com",
+  projectId: "donnies-pizza-app",
+  storageBucket: "donnies-pizza-app.firebasestorage.app",
+  messagingSenderId: "733555892655",
+  appId: "1:733555892655:web:946d0c70054f5037238f5a",
+  measurementId: "G-ND748DX2EL"
+};
+let db = null;
+try {
+  firebase.initializeApp(firebaseConfig);
+  db = firebase.firestore();
+  // Habilita caché local: la app sigue funcionando sin internet y sincroniza
+  // automáticamente en cuanto vuelve la conexión.
+  db.enablePersistence({synchronizeTabs: true}).catch(() => {});
+} catch (e) {
+  db = null; // si Firebase no carga (p. ej. sin internet en la primera visita), se sigue con el respaldo local
+}
 
 // ---------- Almacenamiento local con respaldo en memoria ----------
 // Usa localStorage cuando está disponible (app instalada / GitHub Pages) para
@@ -98,8 +121,40 @@ const store = {
   }
 };
 function usePersistentState(key, initial){
+  // Arranca con lo que haya en el respaldo local (para que la app cargue
+  // instantáneo y funcione sin internet), y en cuanto Firestore responde,
+  // se sincroniza con lo que haya en la nube (compartido entre dispositivos).
   const [value, setValue] = useState(() => store.get(key, initial));
-  useEffect(() => { store.set(key, value); }, [value]);
+  const readyRef = useRef(false);
+  const skipWriteRef = useRef(false);
+
+  useEffect(() => {
+    if(!db){ readyRef.current = true; return; }
+    const ref = db.collection('donnies_pizza_app').doc(key);
+    const unsub = ref.onSnapshot(
+      (snap) => {
+        skipWriteRef.current = true;
+        if(snap.exists && snap.data().value !== undefined){
+          setValue(snap.data().value);
+        } else {
+          ref.set({value: store.get(key, initial)}).catch(() => {});
+        }
+        readyRef.current = true;
+      },
+      () => { readyRef.current = true; } // sin conexión: se sigue con el respaldo local
+    );
+    return () => unsub();
+  }, [key]);
+
+  useEffect(() => {
+    store.set(key, value); // respaldo local siempre, incluso sin internet
+    if(!readyRef.current) return;
+    if(skipWriteRef.current){ skipWriteRef.current = false; return; }
+    if(db){
+      db.collection('donnies_pizza_app').doc(key).set({value}).catch(() => {});
+    }
+  }, [value]);
+
   return [value, setValue];
 }
 
