@@ -1,0 +1,697 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+<title>Donnie's Pizza — Ventas</title>
+<link rel="manifest" href="data:application/json;base64,eyJuYW1lIjoiRG9ubmllJ3MgUGl6emEiLCJzaG9ydF9uYW1lIjoiRG9ubmllJ3MiLCJzdGFydF91cmwiOiIuIiwiZGlzcGxheSI6InN0YW5kYWxvbmUiLCJiYWNrZ3JvdW5kX2NvbG9yIjoiI2ZmZmZmZiIsInRoZW1lX2NvbG9yIjoiI2IyMTgyOSJ9">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.5/babel.min.js"></script>
+<style>
+  :root{
+    --rojo: #B21829;
+    --rojo-dark: #E2394A;
+    --blanco: #FFFFFF;
+    --gris: #F5F1EE;
+    --texto: #241414;
+    --card: #FFFFFF;
+    --borde: #EAD9D9;
+  }
+  *{box-sizing:border-box;}
+  body{margin:0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:var(--gris);color:var(--texto);transition:background .2s,color .2s;}
+  #root{max-width:480px;margin:0 auto;min-height:100vh;display:flex;flex-direction:column;background:var(--gris);}
+  .header{padding:18px 20px 12px;position:sticky;top:0;background:var(--gris);z-index:5;}
+  .header h1{font-size:22px;margin:0;letter-spacing:-0.02em;font-weight:800;}
+  .header .sub{font-size:13px;opacity:.6;margin-top:2px;}
+  .content{flex:1;padding:0 16px 90px;overflow-y:auto;}
+  .card{background:var(--card);border:1px solid var(--borde);border-radius:16px;padding:16px;margin-bottom:14px;}
+  .card h3{margin:0 0 10px;font-size:14px;font-weight:700;opacity:.75;text-transform:uppercase;letter-spacing:.03em;}
+  .stat-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
+  .stat{background:var(--card);border:1px solid var(--borde);border-radius:14px;padding:14px;}
+  .stat .num{font-size:22px;font-weight:800;color:var(--rojo);}
+  .stat .lbl{font-size:12px;opacity:.65;margin-top:2px;}
+  .stat .delta{font-size:12px;font-weight:700;margin-top:4px;}
+  .delta.up{color:#1e8e3e;} .delta.down{color:var(--rojo);}
+  select,input{width:100%;padding:11px 12px;border-radius:10px;border:1px solid var(--borde);background:var(--blanco);color:var(--texto);font-size:15px;margin-bottom:10px;}
+  label{font-size:12px;font-weight:700;opacity:.7;display:block;margin-bottom:4px;}
+  button.primary{width:100%;padding:13px;border:none;border-radius:12px;background:var(--rojo);color:#fff;font-weight:800;font-size:15px;}
+  button.primary:active{background:var(--rojo-dark);}
+  .row{display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid var(--borde);font-size:14px;}
+  .row:last-child{border-bottom:none;}
+  .row-main{flex:1; cursor:pointer;}
+  .row-actions{display:flex;gap:10px;align-items:center;}
+  .icon-btn{background:none;border:none;font-size:16px;padding:2px 4px;cursor:pointer;opacity:.7;}
+  .icon-btn:active{opacity:1;}
+  .edit-box{background:var(--gris);border:1px solid var(--borde);border-radius:12px;padding:12px;margin-bottom:10px;}
+  .edit-box .actions-row{display:flex;gap:10px;}
+  .edit-box .actions-row button{flex:1;}
+  button.secondary{background:#8a8a8a;}
+  button.danger{background:#7a1010;}
+  .seg{display:flex;background:var(--card);border:1px solid var(--borde);border-radius:12px;padding:4px;margin-bottom:14px;}
+  .seg button{flex:1;background:none;border:none;padding:9px 6px;border-radius:9px;font-size:12px;font-weight:700;color:var(--texto);opacity:.55;}
+  .seg button.active{background:var(--rojo);color:#fff;opacity:1;}
+  .status-tag{font-size:11px;font-weight:800;padding:3px 9px;border-radius:999px;white-space:nowrap;}
+  .status-tag.ok{background:#1e8e3e;color:#fff;}
+  .status-tag.warn{background:#c98a12;color:#fff;}
+  .status-tag.danger{background:var(--rojo);color:#fff;}
+  .tag{font-size:11px;font-weight:700;padding:2px 8px;border-radius:999px;background:var(--rojo);color:#fff;opacity:.9;}
+  .bar-row{display:flex;align-items:center;gap:8px;margin-bottom:6px;}
+  .bar-track{flex:1;background:var(--borde);border-radius:6px;height:10px;overflow:hidden;}
+  .bar-fill{background:var(--rojo);height:100%;border-radius:6px;}
+  .bar-label{width:38px;font-size:11px;opacity:.7;text-align:right;}
+  nav{position:fixed;bottom:0;left:50%;transform:translateX(-50%);width:100%;max-width:480px;background:var(--card);border-top:1px solid var(--borde);display:flex;padding:8px 4px calc(8px + env(safe-area-inset-bottom));}
+  nav button{flex:1;background:none;border:none;display:flex;flex-direction:column;align-items:center;gap:3px;color:var(--texto);opacity:.5;font-size:11px;font-weight:700;padding:6px 0;}
+  nav button.active{opacity:1;color:var(--rojo);}
+  .empty{text-align:center;padding:30px 10px;opacity:.5;font-size:13px;}
+  .logo-wrap{display:flex;justify-content:center;padding:6px 0 2px;}
+  .logo-wrap img{max-width:180px;height:auto;display:block;}
+  .pin-display{font-size:20px;font-weight:800;letter-spacing:4px;color:var(--rojo);}
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script type="text/babel">
+const {useState, useMemo, useEffect} = React;
+
+// ---------- Almacenamiento local con respaldo en memoria ----------
+// Usa localStorage cuando está disponible (app instalada / GitHub Pages) para
+// que los datos sobrevivan al cerrar la app y funcionen sin internet.
+// Si localStorage no está disponible (p. ej. vista previa en un entorno restringido),
+// cae automáticamente a un respaldo en memoria para que la app no se rompa.
+const memoryFallback = {};
+const store = {
+  get(key, fallback){
+    try {
+      const raw = localStorage.getItem(key);
+      return raw !== null ? JSON.parse(raw) : fallback;
+    } catch(e){
+      return memoryFallback[key] !== undefined ? memoryFallback[key] : fallback;
+    }
+  },
+  set(key, value){
+    try {
+      localStorage.setItem(key, JSON.stringify(value));
+    } catch(e){
+      memoryFallback[key] = value;
+    }
+  }
+};
+function usePersistentState(key, initial){
+  const [value, setValue] = useState(() => store.get(key, initial));
+  useEffect(() => { store.set(key, value); }, [value]);
+  return [value, setValue];
+}
+
+const LOGO_SRC = 'data:image/jpeg;base64,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';
+
+
+// ---------- Config editable ----------
+// Canales de venta manual (sin inventario ni productos: solo monto total por canal)
+const CANALES = [
+  {id:'didi', label:'Didi Food'},
+  {id:'uber', label:'Uber Eats'},
+  {id:'rappi', label:'Rappi'},
+  {id:'sucursal', label:'Venta en sucursal'},
+  {id:'llevar', label:'Pedidos para llevar'},
+];
+
+function todayISO(d=new Date()){ return d.toISOString().slice(0,10); }
+function fmt(n){ return '$' + Number(n||0).toLocaleString('es-MX',{minimumFractionDigits:0}); }
+function startOfWeek(d){ const x=new Date(d); const day=(x.getDay()+6)%7; x.setDate(x.getDate()-day); x.setHours(0,0,0,0); return x; }
+
+function App(){
+  const [tab, setTab] = useState('ventas');
+  const [adminPin, setAdminPin] = usePersistentState('donnies_admin_pin', '1234');
+  const [unlocked, setUnlocked] = useState(false);
+  const [ventas, setVentas] = usePersistentState('donnies_ventas', []); // {id, canal, monto, fecha(ISO date), hora(0-23), nota}
+  const [cierres, setCierres] = usePersistentState('donnies_cierres', []); // cierres de caja
+  const [costos, setCostos] = usePersistentState('donnies_costos', []);
+  const [gastos, setGastos] = usePersistentState('donnies_gastos', []);
+  const [inventario, setInventario] = usePersistentState('donnies_inventario', []); // {id, nombre, actual, minimo, maximo}
+
+  // ---- formulario venta ----
+  const [canal, setCanal] = useState(CANALES[0].id);
+  const [monto, setMonto] = useState('');
+  const [nota, setNota] = useState('');
+
+  function agregarVenta(e){
+    e.preventDefault();
+    if(!monto || Number(monto) <= 0) return;
+    const now = new Date();
+    setVentas(v => [...v, {
+      id: Date.now(),
+      canal, monto: Number(monto), nota,
+      fecha: todayISO(now), hora: now.getHours()
+    }]);
+    setMonto(''); setNota('');
+  }
+
+  // ---- métricas ----
+  const metrics = useMemo(()=>{
+    const now = new Date();
+    const hoy = todayISO(now);
+    const semanaIni = startOfWeek(now);
+    const semanaPasadaIni = new Date(semanaIni); semanaPasadaIni.setDate(semanaPasadaIni.getDate()-7);
+    const mesIni = new Date(now.getFullYear(), now.getMonth(), 1);
+
+    let totalHoy=0, totalSemana=0, totalSemanaPasada=0, totalMes=0;
+    const porHora = Array(24).fill(0);
+    const porCanalHoy = {};
+
+    ventas.forEach(v=>{
+      const f = new Date(v.fecha+'T00:00:00');
+      if(v.fecha === hoy){ totalHoy += v.monto; porCanalHoy[v.canal] = (porCanalHoy[v.canal]||0)+v.monto; porHora[v.hora]+=v.monto; }
+      if(f >= semanaIni) totalSemana += v.monto;
+      if(f >= semanaPasadaIni && f < semanaIni) totalSemanaPasada += v.monto;
+      if(f >= mesIni) totalMes += v.monto;
+    });
+
+    let horaPico = 0;
+    porHora.forEach((val,h)=>{ if(val > porHora[horaPico]) horaPico = h; });
+    const maxHora = Math.max(...porHora, 1);
+
+    const deltaSemana = totalSemanaPasada > 0 ? Math.round(((totalSemana-totalSemanaPasada)/totalSemanaPasada)*100) : null;
+
+    return {totalHoy, totalSemana, totalSemanaPasada, totalMes, porHora, horaPico, maxHora, porCanalHoy, deltaSemana};
+  }, [ventas]);
+
+  if(!unlocked){
+    return <Lock adminPin={adminPin} onUnlock={()=>setUnlocked(true)} />;
+  }
+
+  return (
+    <div>
+      <div className="header">
+        <div className="logo-wrap"><img src={LOGO_SRC} alt="Donnie's Pizza" /></div>
+        <div className="sub" style={{textAlign:'center'}}>{tab==='ventas' ? 'Registro y análisis de ventas' : tab==='mas' ? 'Cierres, costos y gastos' : 'Configuración'}</div>
+      </div>
+
+      <div className="content">
+        {tab === 'ventas' && <Ventas
+          canal={canal} setCanal={setCanal} monto={monto} setMonto={setMonto}
+          nota={nota} setNota={setNota} agregarVenta={agregarVenta}
+          ventas={ventas} setVentas={setVentas} metrics={metrics}
+        />}
+        {tab === 'mas' && <Mas cierres={cierres} setCierres={setCierres} costos={costos} setCostos={setCostos} gastos={gastos} setGastos={setGastos} inventario={inventario} setInventario={setInventario} metrics={metrics} />}
+        {tab === 'config' && <Config adminPin={adminPin} setAdminPin={setAdminPin} onLock={()=>setUnlocked(false)} />}
+      </div>
+
+      <nav>
+        <button className={tab==='ventas'?'active':''} onClick={()=>setTab('ventas')}>
+          <span>💰</span>Ventas
+        </button>
+        <button className={tab==='mas'?'active':''} onClick={()=>setTab('mas')}>
+          <span>➕</span>Más
+        </button>
+        <button className={tab==='config'?'active':''} onClick={()=>setTab('config')}>
+          <span>⚙️</span>Configuración
+        </button>
+      </nav>
+    </div>
+  );
+}
+
+function Ventas({canal, setCanal, monto, setMonto, nota, setNota, agregarVenta, ventas, setVentas, metrics}){
+  const hoy = todayISO();
+  const ventasHoy = ventas.filter(v=>v.fecha===hoy).sort((a,b)=>b.id-a.id);
+
+  const [editId, setEditId] = useState(null);
+  const [editCanal, setEditCanal] = useState('');
+  const [editMonto, setEditMonto] = useState('');
+  const [editNota, setEditNota] = useState('');
+
+  function empezarEdicion(v){
+    setEditId(v.id);
+    setEditCanal(v.canal);
+    setEditMonto(String(v.monto));
+    setEditNota(v.nota || '');
+  }
+
+  function cancelarEdicion(){
+    setEditId(null);
+  }
+
+  function guardarEdicion(e){
+    e.preventDefault();
+    if(!editMonto || Number(editMonto) <= 0) return;
+    setVentas(vs => vs.map(v => v.id === editId
+      ? {...v, canal: editCanal, monto: Number(editMonto), nota: editNota}
+      : v
+    ));
+    setEditId(null);
+  }
+
+  function eliminarVenta(id){
+    if(confirm('¿Eliminar esta venta?')){
+      setVentas(vs => vs.filter(v => v.id !== id));
+      if(editId === id) setEditId(null);
+    }
+  }
+
+  return (<>
+    <div className="card">
+      <h3>Registrar venta</h3>
+      <form onSubmit={agregarVenta}>
+        <label>Canal</label>
+        <select value={canal} onChange={e=>setCanal(e.target.value)}>
+          {CANALES.map(c => <option key={c.id} value={c.id}>{c.label}</option>)}
+        </select>
+        <label>Monto total</label>
+        <input type="number" inputMode="decimal" placeholder="0.00" value={monto} onChange={e=>setMonto(e.target.value)} />
+        <label>Nota (opcional)</label>
+        <input type="text" placeholder="Ej. 3 pedidos" value={nota} onChange={e=>setNota(e.target.value)} />
+        <button className="primary" type="submit">Agregar venta</button>
+      </form>
+    </div>
+
+    <div className="stat-grid">
+      <div className="stat"><div className="num">{fmt(metrics.totalHoy)}</div><div className="lbl">Ventas hoy</div></div>
+      <div className="stat"><div className="num">{fmt(metrics.totalSemana)}</div><div className="lbl">Esta semana</div></div>
+      <div className="stat"><div className="num">{fmt(metrics.totalMes)}</div><div className="lbl">Este mes</div></div>
+      <div className="stat">
+        <div className="num">{fmt(metrics.totalSemanaPasada)}</div>
+        <div className="lbl">Semana pasada</div>
+        {metrics.deltaSemana !== null && (
+          <div className={"delta " + (metrics.deltaSemana>=0?'up':'down')}>
+            {metrics.deltaSemana>=0?'▲':'▼'} {Math.abs(metrics.deltaSemana)}% vs. esta semana
+          </div>
+        )}
+      </div>
+    </div>
+
+    <div className="card">
+      <h3>Hora pico de ventas (hoy)</h3>
+      {metrics.totalHoy === 0 ? <div className="empty">Aún no hay ventas registradas hoy</div> :
+        <div>
+          <div style={{fontSize:13, marginBottom:8}}>Pico: <b>{metrics.horaPico}:00 – {metrics.horaPico+1}:00</b></div>
+          {metrics.porHora.map((val,h)=> val>0 && (
+            <div className="bar-row" key={h}>
+              <div className="bar-label">{h}:00</div>
+              <div className="bar-track"><div className="bar-fill" style={{width:(val/metrics.maxHora*100)+'%'}}></div></div>
+            </div>
+          ))}
+        </div>
+      }
+    </div>
+
+    <div className="card">
+      <h3>Ventas de hoy por canal</h3>
+      {CANALES.map(c => (
+        <div className="row" key={c.id}>
+          <span>{c.label}</span>
+          <span><b>{fmt(metrics.porCanalHoy[c.id]||0)}</b></span>
+        </div>
+      ))}
+    </div>
+
+    <div className="card">
+      <h3>Movimientos de hoy</h3>
+      {ventasHoy.length===0 ? <div className="empty">Sin movimientos aún</div> :
+        ventasHoy.map(v => editId === v.id ? (
+          <div className="edit-box" key={v.id}>
+            <form onSubmit={guardarEdicion}>
+              <label>Canal</label>
+              <select value={editCanal} onChange={e=>setEditCanal(e.target.value)}>
+                {CANALES.map(c => <option key={c.id} value={c.id}>{c.label}</option>)}
+              </select>
+              <label>Monto total</label>
+              <input type="number" inputMode="decimal" value={editMonto} onChange={e=>setEditMonto(e.target.value)} />
+              <label>Nota (opcional)</label>
+              <input type="text" value={editNota} onChange={e=>setEditNota(e.target.value)} />
+              <div className="actions-row">
+                <button className="primary secondary" type="button" onClick={cancelarEdicion}>Cancelar</button>
+                <button className="primary danger" type="button" onClick={()=>eliminarVenta(v.id)}>Eliminar</button>
+                <button className="primary" type="submit">Guardar</button>
+              </div>
+            </form>
+          </div>
+        ) : (
+          <div className="row" key={v.id}>
+            <span className="row-main" onClick={()=>empezarEdicion(v)}>
+              <span className="tag">{CANALES.find(c=>c.id===v.canal)?.label}</span> {v.nota && <span style={{opacity:.6}}> · {v.nota}</span>}
+            </span>
+            <span className="row-actions">
+              <b>{fmt(v.monto)}</b>
+              <button className="icon-btn" onClick={()=>empezarEdicion(v)}>✏️</button>
+              <button className="icon-btn" onClick={()=>eliminarVenta(v.id)}>🗑️</button>
+            </span>
+          </div>
+        ))
+      }
+    </div>
+  </>);
+}
+
+function Mas({cierres, setCierres, costos, setCostos, gastos, setGastos, inventario, setInventario, metrics}){
+  const [vista, setVista] = useState('registros'); // 'registros' | 'inventario'
+  const [seccion, setSeccion] = useState('cierre');
+  const [monto, setMonto] = useState('');
+  const [desc, setDesc] = useState('');
+  const [categoria, setCategoria] = useState('general');
+
+  const [editKey, setEditKey] = useState(null); // {tipo, id}
+  const [editMonto, setEditMonto] = useState('');
+  const [editDesc, setEditDesc] = useState('');
+  const [editCategoria, setEditCategoria] = useState('general');
+
+  const CATEGORIAS_GASTO = [
+    {id:'general', label:'General'},
+    {id:'retiro', label:'Retiro de caja'},
+    {id:'transferencia', label:'Transferencia'},
+  ];
+
+  function agregar(e){
+    e.preventDefault();
+    if(!monto) return;
+    const item = {id:Date.now(), monto:Number(monto), desc, fecha: todayISO()};
+    if(seccion==='gasto') item.categoria = categoria;
+    if(seccion==='cierre') setCierres(x=>[item,...x]);
+    if(seccion==='costo') setCostos(x=>[item,...x]);
+    if(seccion==='gasto') setGastos(x=>[item,...x]);
+    setMonto(''); setDesc(''); setCategoria('general');
+  }
+
+  const listas = {cierre: cierres, costo: costos, gasto: gastos};
+  const setters = {cierre: setCierres, costo: setCostos, gasto: setGastos};
+  const titulos = {cierre:'Cierre de caja', costo:'Costo', gasto:'Gasto'};
+
+  function empezarEdicion(tipo, it){
+    setEditKey({tipo, id: it.id});
+    setEditMonto(String(it.monto));
+    setEditDesc(it.desc || '');
+    setEditCategoria(it.categoria || 'general');
+  }
+
+  function cancelarEdicion(){
+    setEditKey(null);
+  }
+
+  function guardarEdicion(e){
+    e.preventDefault();
+    if(!editMonto) return;
+    const {tipo, id} = editKey;
+    setters[tipo](xs => xs.map(it => it.id === id
+      ? {...it, monto:Number(editMonto), desc: editDesc, ...(tipo==='gasto' ? {categoria: editCategoria} : {})}
+      : it
+    ));
+    setEditKey(null);
+  }
+
+  function eliminar(tipo, id){
+    if(confirm('¿Eliminar este registro?')){
+      setters[tipo](xs => xs.filter(it => it.id !== id));
+      if(editKey && editKey.tipo===tipo && editKey.id===id) setEditKey(null);
+    }
+  }
+
+  return (<>
+    <div className="seg">
+      <button className={vista==='registros'?'active':''} onClick={()=>setVista('registros')}>Cierres / Costos / Gastos</button>
+      <button className={vista==='inventario'?'active':''} onClick={()=>setVista('inventario')}>Inventario</button>
+    </div>
+
+    {vista === 'inventario' && <Inventario inventario={inventario} setInventario={setInventario} />}
+
+    {vista === 'registros' && (<>
+    <div className="card">
+      <h3>Agregar registro</h3>
+      <label>Tipo</label>
+      <select value={seccion} onChange={e=>setSeccion(e.target.value)}>
+        <option value="cierre">Cierre de caja</option>
+        <option value="costo">Costo</option>
+        <option value="gasto">Gasto</option>
+      </select>
+      <form onSubmit={agregar}>
+        {seccion === 'gasto' && (<>
+          <label>Categoría de gasto</label>
+          <select value={categoria} onChange={e=>setCategoria(e.target.value)}>
+            {CATEGORIAS_GASTO.map(c => <option key={c.id} value={c.id}>{c.label}</option>)}
+          </select>
+        </>)}
+        <label>Monto</label>
+        <input type="number" inputMode="decimal" value={monto} onChange={e=>setMonto(e.target.value)} />
+        <label>Descripción</label>
+        <input type="text" value={desc} onChange={e=>setDesc(e.target.value)} placeholder="Ej. compra de gas, corte de turno..." />
+        <button className="primary" type="submit">Guardar {titulos[seccion].toLowerCase()}</button>
+      </form>
+    </div>
+
+    {['cierre','costo','gasto'].map(tipo=>(
+      <div className="card" key={tipo}>
+        <h3>{titulos[tipo]}s recientes</h3>
+        {listas[tipo].length===0 ? <div className="empty">Sin registros</div> :
+          listas[tipo].slice(0,8).map(it => (editKey && editKey.tipo===tipo && editKey.id===it.id) ? (
+            <div className="edit-box" key={it.id}>
+              <form onSubmit={guardarEdicion}>
+                {tipo === 'gasto' && (<>
+                  <label>Categoría de gasto</label>
+                  <select value={editCategoria} onChange={e=>setEditCategoria(e.target.value)}>
+                    {CATEGORIAS_GASTO.map(c => <option key={c.id} value={c.id}>{c.label}</option>)}
+                  </select>
+                </>)}
+                <label>Monto</label>
+                <input type="number" inputMode="decimal" value={editMonto} onChange={e=>setEditMonto(e.target.value)} />
+                <label>Descripción</label>
+                <input type="text" value={editDesc} onChange={e=>setEditDesc(e.target.value)} />
+                <div className="actions-row">
+                  <button className="primary secondary" type="button" onClick={cancelarEdicion}>Cancelar</button>
+                  <button className="primary danger" type="button" onClick={()=>eliminar(tipo, it.id)}>Eliminar</button>
+                  <button className="primary" type="submit">Guardar</button>
+                </div>
+              </form>
+            </div>
+          ) : (
+            <div className="row" key={it.id}>
+              <span className="row-main" onClick={()=>empezarEdicion(tipo, it)}>
+                {tipo==='gasto' && it.categoria && it.categoria!=='general' && (
+                  <span className="tag">{CATEGORIAS_GASTO.find(c=>c.id===it.categoria)?.label}</span>
+                )} {it.desc || '—'} <span style={{opacity:.5}}> · {it.fecha}</span>
+              </span>
+              <span className="row-actions">
+                <b>{fmt(it.monto)}</b>
+                <button className="icon-btn" onClick={()=>empezarEdicion(tipo, it)}>✏️</button>
+                <button className="icon-btn" onClick={()=>eliminar(tipo, it.id)}>🗑️</button>
+              </span>
+            </div>
+          ))
+        }
+      </div>
+    ))}
+    </>)}
+  </>);
+}
+
+function Inventario({inventario, setInventario}){
+  const [nombre, setNombre] = useState('');
+  const [actual, setActual] = useState('');
+  const [minimo, setMinimo] = useState('');
+  const [maximo, setMaximo] = useState('');
+
+  const [editId, setEditId] = useState(null);
+  const [eNombre, setENombre] = useState('');
+  const [eActual, setEActual] = useState('');
+  const [eMinimo, setEMinimo] = useState('');
+  const [eMaximo, setEMaximo] = useState('');
+
+  function agregar(e){
+    e.preventDefault();
+    if(!nombre || actual==='' || minimo==='' || maximo==='') return;
+    setInventario(xs => [...xs, {
+      id: Date.now(), nombre,
+      actual: Number(actual), minimo: Number(minimo), maximo: Number(maximo)
+    }]);
+    setNombre(''); setActual(''); setMinimo(''); setMaximo('');
+  }
+
+  function empezarEdicion(it){
+    setEditId(it.id);
+    setENombre(it.nombre); setEActual(String(it.actual));
+    setEMinimo(String(it.minimo)); setEMaximo(String(it.maximo));
+  }
+
+  function cancelarEdicion(){ setEditId(null); }
+
+  function guardarEdicion(e){
+    e.preventDefault();
+    setInventario(xs => xs.map(it => it.id === editId
+      ? {...it, nombre: eNombre, actual:Number(eActual), minimo:Number(eMinimo), maximo:Number(eMaximo)}
+      : it
+    ));
+    setEditId(null);
+  }
+
+  function eliminar(id){
+    if(confirm('¿Eliminar este producto del inventario?')){
+      setInventario(xs => xs.filter(it => it.id !== id));
+      if(editId === id) setEditId(null);
+    }
+  }
+
+  function estado(it){
+    if(it.actual < it.minimo) return {label:'Bajo mínimo', cls:'danger'};
+    if(it.actual > it.maximo) return {label:'Sobre máximo', cls:'warn'};
+    return {label:'OK', cls:'ok'};
+  }
+
+  return (<>
+    <div className="card">
+      <h3>Agregar producto</h3>
+      <form onSubmit={agregar}>
+        <label>Nombre del producto/insumo</label>
+        <input type="text" value={nombre} onChange={e=>setNombre(e.target.value)} placeholder="Ej. Queso mozzarella (kg)" />
+        <label>Cantidad actual</label>
+        <input type="number" inputMode="decimal" value={actual} onChange={e=>setActual(e.target.value)} />
+        <label>Mínimo</label>
+        <input type="number" inputMode="decimal" value={minimo} onChange={e=>setMinimo(e.target.value)} />
+        <label>Máximo</label>
+        <input type="number" inputMode="decimal" value={maximo} onChange={e=>setMaximo(e.target.value)} />
+        <button className="primary" type="submit">Agregar al inventario</button>
+      </form>
+    </div>
+
+    <div className="card">
+      <h3>Inventario</h3>
+      {inventario.length===0 ? <div className="empty">Sin productos aún</div> :
+        inventario.map(it => editId===it.id ? (
+          <div className="edit-box" key={it.id}>
+            <form onSubmit={guardarEdicion}>
+              <label>Nombre</label>
+              <input type="text" value={eNombre} onChange={e=>setENombre(e.target.value)} />
+              <label>Cantidad actual</label>
+              <input type="number" inputMode="decimal" value={eActual} onChange={e=>setEActual(e.target.value)} />
+              <label>Mínimo</label>
+              <input type="number" inputMode="decimal" value={eMinimo} onChange={e=>setEMinimo(e.target.value)} />
+              <label>Máximo</label>
+              <input type="number" inputMode="decimal" value={eMaximo} onChange={e=>setEMaximo(e.target.value)} />
+              <div className="actions-row">
+                <button className="primary secondary" type="button" onClick={cancelarEdicion}>Cancelar</button>
+                <button className="primary danger" type="button" onClick={()=>eliminar(it.id)}>Eliminar</button>
+                <button className="primary" type="submit">Guardar</button>
+              </div>
+            </form>
+          </div>
+        ) : (
+          <div className="row" key={it.id} onClick={()=>empezarEdicion(it)}>
+            <div className="row-main">
+              <div>{it.nombre}</div>
+              <div style={{fontSize:12, opacity:.6}}>Actual: {it.actual} · Mín: {it.minimo} · Máx: {it.maximo}</div>
+            </div>
+            <span className="row-actions">
+              <span className={"status-tag " + estado(it).cls}>{estado(it).label}</span>
+              <button className="icon-btn" onClick={(e)=>{e.stopPropagation(); eliminar(it.id);}}>🗑️</button>
+            </span>
+          </div>
+        ))
+      }
+    </div>
+  </>);
+}
+
+function Lock({adminPin, onUnlock}){
+  const [pin, setPin] = useState('');
+  const [error, setError] = useState('');
+
+  function intentar(e){
+    e.preventDefault();
+    if(pin === adminPin){
+      setError('');
+      setPin('');
+      onUnlock();
+    } else {
+      setError('NIP incorrecto.');
+      setPin('');
+    }
+  }
+
+  return (
+    <div style={{maxWidth:480, margin:'0 auto', minHeight:'100vh', display:'flex', flexDirection:'column', justifyContent:'center', padding:'0 24px'}}>
+      <div className="logo-wrap" style={{marginBottom:24}}><img src={LOGO_SRC} alt="Donnie's Pizza" /></div>
+      <div className="card">
+        <h3>Acceso de administrador</h3>
+        <form onSubmit={intentar}>
+          <label>Ingresa tu NIP</label>
+          <input type="password" inputMode="numeric" pattern="[0-9]*" maxLength="6" autoFocus
+            value={pin} onChange={e=>{setPin(e.target.value.replace(/\D/g,'')); setError('');}} />
+          {error && <div style={{color:'var(--rojo)', fontSize:13, marginBottom:10}}>{error}</div>}
+          <button className="primary" type="submit">Entrar</button>
+        </form>
+      </div>
+    </div>
+  );
+}
+
+function Config({adminPin, setAdminPin, onLock}){
+  const [editando, setEditando] = useState(false);
+  const [nuevoPin, setNuevoPin] = useState('');
+  const [confirmaPin, setConfirmaPin] = useState('');
+  const [mensaje, setMensaje] = useState('');
+
+  function guardarPin(e){
+    e.preventDefault();
+    if(!/^\d{4,6}$/.test(nuevoPin)){
+      setMensaje('El NIP debe tener entre 4 y 6 dígitos.');
+      return;
+    }
+    if(nuevoPin !== confirmaPin){
+      setMensaje('Los NIP no coinciden.');
+      return;
+    }
+    setAdminPin(nuevoPin);
+    setEditando(false);
+    setNuevoPin(''); setConfirmaPin('');
+    setMensaje('');
+  }
+
+  return (<>
+    <div className="card">
+      <h3>NIP de administrador</h3>
+      {!editando ? (
+        <>
+          <div className="row">
+            <span>NIP actual</span>
+            <span className="pin-display">{'•'.repeat(adminPin.length)}</span>
+          </div>
+          <button className="primary" onClick={()=>setEditando(true)}>Cambiar NIP</button>
+        </>
+      ) : (
+        <form onSubmit={guardarPin}>
+          <label>Nuevo NIP (4 a 6 dígitos)</label>
+          <input type="password" inputMode="numeric" pattern="[0-9]*" maxLength="6"
+            value={nuevoPin} onChange={e=>setNuevoPin(e.target.value.replace(/\D/g,''))} />
+          <label>Confirmar NIP</label>
+          <input type="password" inputMode="numeric" pattern="[0-9]*" maxLength="6"
+            value={confirmaPin} onChange={e=>setConfirmaPin(e.target.value.replace(/\D/g,''))} />
+          {mensaje && <div style={{color:'var(--rojo)', fontSize:13, marginBottom:10}}>{mensaje}</div>}
+          <button className="primary" type="submit">Guardar NIP</button>
+        </form>
+      )}
+    </div>
+    <div className="card">
+      <h3>Acerca de</h3>
+      <div className="row"><span>Negocio</span><span>Donnie's Pizza</span></div>
+      <div className="row"><span>Versión</span><span>1.0</span></div>
+    </div>
+    <div className="card">
+      <button className="primary" style={{background:'#555'}} onClick={onLock}>Bloquear app</button>
+    </div>
+  </>);
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(<App/>);
+
+// Registro del service worker: permite que la app cargue y funcione
+// sin internet una vez que se visitó al menos una vez estando en línea.
+// Se protege con try/catch para que, si el entorno no soporta service
+// workers (p. ej. una vista previa restringida), la app no se rompa.
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('sw.js').catch(() => {
+      // Silenciar: si falla el registro, la app sigue funcionando en línea con normalidad.
+    });
+  });
+}
+
+</script>
+</body>
+</html>
