@@ -170,6 +170,13 @@ const CANALES = [
   {id:'sucursal', label:'Venta en sucursal'},
   {id:'llevar', label:'Pedidos para llevar'},
 ];
+// Canales donde se cobra directamente (los de delivery ya traen su propio pago resuelto)
+const CANALES_CON_PAGO = ['sucursal', 'llevar'];
+const METODOS_PAGO = [
+  {id:'efectivo', label:'Efectivo'},
+  {id:'debito', label:'Débito'},
+  {id:'credito', label:'Crédito'},
+];
 
 function todayISO(d=new Date()){ return d.toISOString().slice(0,10); }
 function fmt(n){ return '$' + Number(n||0).toLocaleString('es-MX',{minimumFractionDigits:0}); }
@@ -189,16 +196,19 @@ function App(){
   const [canal, setCanal] = useState(CANALES[0].id);
   const [monto, setMonto] = useState('');
   const [nota, setNota] = useState('');
+  const [metodoPago, setMetodoPago] = useState('efectivo');
 
   function agregarVenta(e){
     e.preventDefault();
     if(!monto || Number(monto) <= 0) return;
     const now = new Date();
-    setVentas(v => [...v, {
+    const item = {
       id: Date.now(),
       canal, monto: Number(monto), nota,
       fecha: todayISO(now), hora: now.getHours()
-    }]);
+    };
+    if(canal === 'sucursal' || canal === 'llevar') item.metodoPago = metodoPago;
+    setVentas(v => [...v, item]);
     setMonto(''); setNota('');
   }
 
@@ -245,7 +255,8 @@ function App(){
       <div className="content">
         {tab === 'ventas' && <Ventas
           canal={canal} setCanal={setCanal} monto={monto} setMonto={setMonto}
-          nota={nota} setNota={setNota} agregarVenta={agregarVenta}
+          nota={nota} setNota={setNota} metodoPago={metodoPago} setMetodoPago={setMetodoPago}
+          agregarVenta={agregarVenta}
           ventas={ventas} setVentas={setVentas} metrics={metrics}
         />}
         {tab === 'mas' && <Mas cierres={cierres} setCierres={setCierres} costos={costos} setCostos={setCostos} gastos={gastos} setGastos={setGastos} inventario={inventario} setInventario={setInventario} metrics={metrics} />}
@@ -267,7 +278,7 @@ function App(){
   );
 }
 
-function Ventas({canal, setCanal, monto, setMonto, nota, setNota, agregarVenta, ventas, setVentas, metrics}){
+function Ventas({canal, setCanal, monto, setMonto, nota, setNota, metodoPago, setMetodoPago, agregarVenta, ventas, setVentas, metrics}){
   const hoy = todayISO();
   const ventasHoy = ventas.filter(v=>v.fecha===hoy).sort((a,b)=>b.id-a.id);
 
@@ -275,12 +286,14 @@ function Ventas({canal, setCanal, monto, setMonto, nota, setNota, agregarVenta, 
   const [editCanal, setEditCanal] = useState('');
   const [editMonto, setEditMonto] = useState('');
   const [editNota, setEditNota] = useState('');
+  const [editMetodoPago, setEditMetodoPago] = useState('efectivo');
 
   function empezarEdicion(v){
     setEditId(v.id);
     setEditCanal(v.canal);
     setEditMonto(String(v.monto));
     setEditNota(v.nota || '');
+    setEditMetodoPago(v.metodoPago || 'efectivo');
   }
 
   function cancelarEdicion(){
@@ -291,7 +304,8 @@ function Ventas({canal, setCanal, monto, setMonto, nota, setNota, agregarVenta, 
     e.preventDefault();
     if(!editMonto || Number(editMonto) <= 0) return;
     setVentas(vs => vs.map(v => v.id === editId
-      ? {...v, canal: editCanal, monto: Number(editMonto), nota: editNota}
+      ? {...v, canal: editCanal, monto: Number(editMonto), nota: editNota,
+         ...(CANALES_CON_PAGO.includes(editCanal) ? {metodoPago: editMetodoPago} : {metodoPago: undefined})}
       : v
     ));
     setEditId(null);
@@ -312,6 +326,12 @@ function Ventas({canal, setCanal, monto, setMonto, nota, setNota, agregarVenta, 
         <select value={canal} onChange={e=>setCanal(e.target.value)}>
           {CANALES.map(c => <option key={c.id} value={c.id}>{c.label}</option>)}
         </select>
+        {CANALES_CON_PAGO.includes(canal) && (<>
+          <label>Método de pago</label>
+          <select value={metodoPago} onChange={e=>setMetodoPago(e.target.value)}>
+            {METODOS_PAGO.map(m => <option key={m.id} value={m.id}>{m.label}</option>)}
+          </select>
+        </>)}
         <label>Monto total</label>
         <input type="number" inputMode="decimal" placeholder="0.00" value={monto} onChange={e=>setMonto(e.target.value)} />
         <label>Nota (opcional)</label>
@@ -370,6 +390,12 @@ function Ventas({canal, setCanal, monto, setMonto, nota, setNota, agregarVenta, 
               <select value={editCanal} onChange={e=>setEditCanal(e.target.value)}>
                 {CANALES.map(c => <option key={c.id} value={c.id}>{c.label}</option>)}
               </select>
+              {CANALES_CON_PAGO.includes(editCanal) && (<>
+                <label>Método de pago</label>
+                <select value={editMetodoPago} onChange={e=>setEditMetodoPago(e.target.value)}>
+                  {METODOS_PAGO.map(m => <option key={m.id} value={m.id}>{m.label}</option>)}
+                </select>
+              </>)}
               <label>Monto total</label>
               <input type="number" inputMode="decimal" value={editMonto} onChange={e=>setEditMonto(e.target.value)} />
               <label>Nota (opcional)</label>
@@ -384,7 +410,9 @@ function Ventas({canal, setCanal, monto, setMonto, nota, setNota, agregarVenta, 
         ) : (
           <div className="row" key={v.id}>
             <span className="row-main" onClick={()=>empezarEdicion(v)}>
-              <span className="tag">{CANALES.find(c=>c.id===v.canal)?.label}</span> {v.nota && <span style={{opacity:.6}}> · {v.nota}</span>}
+              <span className="tag">{CANALES.find(c=>c.id===v.canal)?.label}</span>
+              {v.metodoPago && <span className="tag" style={{background:'#555'}}>{METODOS_PAGO.find(m=>m.id===v.metodoPago)?.label}</span>}
+              {v.nota && <span style={{opacity:.6}}> · {v.nota}</span>}
             </span>
             <span className="row-actions">
               <b>{fmt(v.monto)}</b>
@@ -417,6 +445,53 @@ function Mas({cierres, setCierres, costos, setCostos, gastos, setGastos, inventa
     {id:'tarjeta', label:'Tarjeta'},
   ];
 
+  // ---- comparativo de cierres: este mes vs. mes pasado ----
+  const cierresMetrics = useMemo(() => {
+    const now = new Date();
+    const mesIni = new Date(now.getFullYear(), now.getMonth(), 1);
+    const mesPasadoIni = new Date(now.getFullYear(), now.getMonth()-1, 1);
+    let totalMes = 0, totalMesPasado = 0;
+    cierres.forEach(c => {
+      const f = new Date(c.fecha+'T00:00:00');
+      if(f >= mesIni) totalMes += c.monto;
+      else if(f >= mesPasadoIni && f < mesIni) totalMesPasado += c.monto;
+    });
+    const delta = totalMesPasado > 0 ? Math.round(((totalMes-totalMesPasado)/totalMesPasado)*100) : null;
+    return {totalMes, totalMesPasado, delta};
+  }, [cierres]);
+
+  function imprimirTicket(it){
+    const w = window.open('', '_blank');
+    if(!w) return;
+    const fechaHora = new Date(it.id).toLocaleString('es-MX');
+    // Nota: se arma el HTML sin la etiqueta <script> incrustada (rompería el
+    // parser del documento principal); la impresión se dispara desde aquí mismo.
+    w.document.write(
+      '<html><head><title>Ticket de cierre de caja</title>' +
+      '<style>' +
+      'body{font-family: monospace; padding:16px; max-width:320px; margin:0 auto; color:#000;}' +
+      'h2{text-align:center; margin:0 0 4px;}' +
+      '.sub{text-align:center; font-size:12px; margin-bottom:16px;}' +
+      '.line{border-top:1px dashed #000; margin:10px 0;}' +
+      '.row{display:flex; justify-content:space-between; font-size:14px; margin:4px 0;}' +
+      '.total{font-size:20px; font-weight:bold; text-align:center; margin:14px 0;}' +
+      '</style></head><body>' +
+      '<h2>Donnie\'s Pizza</h2>' +
+      '<div class="sub">Ticket de cierre de caja</div>' +
+      '<div class="line"></div>' +
+      '<div class="row"><span>Fecha</span><span>' + it.fecha + '</span></div>' +
+      '<div class="row"><span>Registrado</span><span>' + fechaHora + '</span></div>' +
+      '<div class="row"><span>Descripci\u00f3n</span><span>' + (it.desc || '\u2014') + '</span></div>' +
+      '<div class="line"></div>' +
+      '<div class="total">' + fmt(it.monto) + '</div>' +
+      '<div class="line"></div>' +
+      '<div class="sub">Gracias</div>' +
+      '</body></html>'
+    );
+    w.document.close();
+    setTimeout(() => { w.focus(); w.print(); }, 250);
+  }
+
   function agregar(e){
     e.preventDefault();
     if(!monto) return;
@@ -426,6 +501,7 @@ function Mas({cierres, setCierres, costos, setCostos, gastos, setGastos, inventa
     if(seccion==='costo') setCostos(x=>[item,...x]);
     if(seccion==='gasto') setGastos(x=>[item,...x]);
     setMonto(''); setDesc(''); setCategoria('general');
+    if(seccion==='cierre') imprimirTicket(item);
   }
 
   const listas = {cierre: cierres, costo: costos, gasto: gastos};
@@ -470,6 +546,19 @@ function Mas({cierres, setCierres, costos, setCostos, gastos, setGastos, inventa
     {vista === 'inventario' && <Inventario inventario={inventario} setInventario={setInventario} />}
 
     {vista === 'registros' && (<>
+    <div className="stat-grid">
+      <div className="stat"><div className="num">{fmt(cierresMetrics.totalMes)}</div><div className="lbl">Cierres este mes</div></div>
+      <div className="stat">
+        <div className="num">{fmt(cierresMetrics.totalMesPasado)}</div>
+        <div className="lbl">Mes pasado</div>
+        {cierresMetrics.delta !== null && (
+          <div className={"delta " + (cierresMetrics.delta>=0?'up':'down')}>
+            {cierresMetrics.delta>=0?'▲':'▼'} {Math.abs(cierresMetrics.delta)}% vs. este mes
+          </div>
+        )}
+      </div>
+    </div>
+
     <div className="card">
       <h3>Agregar registro</h3>
       <label>Tipo</label>
@@ -526,6 +615,7 @@ function Mas({cierres, setCierres, costos, setCostos, gastos, setGastos, inventa
               </span>
               <span className="row-actions">
                 <b>{fmt(it.monto)}</b>
+                {tipo === 'cierre' && <button className="icon-btn" onClick={()=>imprimirTicket(it)}>🖨️</button>}
                 <button className="icon-btn" onClick={()=>empezarEdicion(tipo, it)}>✏️</button>
                 <button className="icon-btn" onClick={()=>eliminar(tipo, it.id)}>🗑️</button>
               </span>
