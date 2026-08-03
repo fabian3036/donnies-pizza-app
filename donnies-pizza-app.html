@@ -57,6 +57,22 @@
   .status-tag.ok{background:#1e8e3e;color:#fff;}
   .status-tag.warn{background:#c98a12;color:#fff;}
   .status-tag.danger{background:var(--rojo);color:#fff;}
+  .ticket-overlay{position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:50;display:flex;align-items:center;justify-content:center;padding:20px;}
+  .ticket-box{background:#fff;color:#000;border-radius:12px;padding:20px;width:100%;max-width:340px;}
+  .ticket-print{font-family:monospace;}
+  .ticket-print h2{text-align:center;margin:0 0 4px;font-size:18px;}
+  .ticket-sub{text-align:center;font-size:12px;margin-bottom:12px;}
+  .ticket-line{border-top:1px dashed #000;margin:10px 0;}
+  .ticket-row{display:flex;justify-content:space-between;font-size:14px;margin:4px 0;}
+  .ticket-total{font-size:22px;font-weight:bold;text-align:center;margin:14px 0;}
+  .ticket-box .actions-row{margin-top:16px;}
+  @media print{
+    body *{visibility:hidden;}
+    .ticket-print, .ticket-print *{visibility:visible;}
+    .ticket-print{position:absolute;top:0;left:0;width:100%;}
+    .ticket-overlay, .ticket-box{position:static;background:none;padding:0;box-shadow:none;}
+    .no-print{display:none;}
+  }
   .tag{font-size:11px;font-weight:700;padding:2px 8px;border-radius:999px;background:var(--rojo);color:#fff;opacity:.9;}
   .bar-row{display:flex;align-items:center;gap:8px;margin-bottom:6px;}
   .bar-track{flex:1;background:var(--borde);border-radius:6px;height:10px;overflow:hidden;}
@@ -171,7 +187,8 @@ const CANALES = [
   {id:'llevar', label:'Pedidos para llevar'},
 ];
 // Canales donde se cobra directamente (los de delivery ya traen su propio pago resuelto)
-const CANALES_CON_PAGO = ['sucursal', 'llevar'];
+// El método de pago ahora aplica a todos los canales de venta
+const CANALES_CON_PAGO = CANALES.map(c => c.id);
 const METODOS_PAGO = [
   {id:'efectivo', label:'Efectivo'},
   {id:'debito', label:'Débito'},
@@ -460,36 +477,10 @@ function Mas({cierres, setCierres, costos, setCostos, gastos, setGastos, inventa
     return {totalMes, totalMesPasado, delta};
   }, [cierres]);
 
+  const [ticketPreview, setTicketPreview] = useState(null);
+
   function imprimirTicket(it){
-    const w = window.open('', '_blank');
-    if(!w) return;
-    const fechaHora = new Date(it.id).toLocaleString('es-MX');
-    // Nota: se arma el HTML sin la etiqueta <script> incrustada (rompería el
-    // parser del documento principal); la impresión se dispara desde aquí mismo.
-    w.document.write(
-      '<html><head><title>Ticket de cierre de caja</title>' +
-      '<style>' +
-      'body{font-family: monospace; padding:16px; max-width:320px; margin:0 auto; color:#000;}' +
-      'h2{text-align:center; margin:0 0 4px;}' +
-      '.sub{text-align:center; font-size:12px; margin-bottom:16px;}' +
-      '.line{border-top:1px dashed #000; margin:10px 0;}' +
-      '.row{display:flex; justify-content:space-between; font-size:14px; margin:4px 0;}' +
-      '.total{font-size:20px; font-weight:bold; text-align:center; margin:14px 0;}' +
-      '</style></head><body>' +
-      '<h2>Donnie\'s Pizza</h2>' +
-      '<div class="sub">Ticket de cierre de caja</div>' +
-      '<div class="line"></div>' +
-      '<div class="row"><span>Fecha</span><span>' + it.fecha + '</span></div>' +
-      '<div class="row"><span>Registrado</span><span>' + fechaHora + '</span></div>' +
-      '<div class="row"><span>Descripci\u00f3n</span><span>' + (it.desc || '\u2014') + '</span></div>' +
-      '<div class="line"></div>' +
-      '<div class="total">' + fmt(it.monto) + '</div>' +
-      '<div class="line"></div>' +
-      '<div class="sub">Gracias</div>' +
-      '</body></html>'
-    );
-    w.document.close();
-    setTimeout(() => { w.focus(); w.print(); }, 250);
+    setTicketPreview(it);
   }
 
   function agregar(e){
@@ -625,7 +616,35 @@ function Mas({cierres, setCierres, costos, setCostos, gastos, setGastos, inventa
       </div>
     ))}
     </>)}
+
+    {ticketPreview && <TicketModal it={ticketPreview} onClose={()=>setTicketPreview(null)} />}
   </>);
+}
+
+function TicketModal({it, onClose}){
+  const fechaHora = new Date(it.id).toLocaleString('es-MX');
+  return (
+    <div className="ticket-overlay">
+      <div className="ticket-box">
+        <div className="ticket-print">
+          <h2>Donnie's Pizza</h2>
+          <div className="ticket-sub">Ticket de cierre de caja</div>
+          <div className="ticket-line"></div>
+          <div className="ticket-row"><span>Fecha</span><span>{it.fecha}</span></div>
+          <div className="ticket-row"><span>Registrado</span><span>{fechaHora}</span></div>
+          <div className="ticket-row"><span>Descripción</span><span>{it.desc || '—'}</span></div>
+          <div className="ticket-line"></div>
+          <div className="ticket-total">{fmt(it.monto)}</div>
+          <div className="ticket-line"></div>
+          <div className="ticket-sub">Gracias</div>
+        </div>
+        <div className="actions-row no-print">
+          <button className="primary secondary" onClick={onClose}>Cerrar</button>
+          <button className="primary" onClick={()=>window.print()}>Imprimir</button>
+        </div>
+      </div>
+    </div>
+  );
 }
 
 function Inventario({inventario, setInventario}){
