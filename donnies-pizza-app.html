@@ -623,6 +623,26 @@ function Mas({cierres, setCierres, costos, setCostos, gastos, setGastos, inventa
 
 function TicketModal({it, onClose}){
   const fechaHora = new Date(it.id).toLocaleString('es-MX');
+
+  async function compartir(){
+    const texto = "Donnie's Pizza\nTicket de cierre de caja\n\n" +
+      "Fecha: " + it.fecha + "\n" +
+      "Registrado: " + fechaHora + "\n" +
+      "Descripción: " + (it.desc || '—') + "\n\n" +
+      "Total: " + fmt(it.monto) + "\n\nGracias";
+    if(navigator.share){
+      try { await navigator.share({title: 'Ticket de cierre de caja', text: texto}); }
+      catch(e){ /* el usuario canceló el compartir, no pasa nada */ }
+    } else if(navigator.clipboard){
+      try {
+        await navigator.clipboard.writeText(texto);
+        alert('No se pudo abrir el menú de compartir, así que copiamos el ticket. Pégalo donde quieras imprimirlo.');
+      } catch(e){ alert(texto); }
+    } else {
+      alert(texto);
+    }
+  }
+
   return (
     <div className="ticket-overlay">
       <div className="ticket-box">
@@ -640,7 +660,7 @@ function TicketModal({it, onClose}){
         </div>
         <div className="actions-row no-print">
           <button className="primary secondary" onClick={onClose}>Cerrar</button>
-          <button className="primary" onClick={()=>window.print()}>Imprimir</button>
+          <button className="primary" onClick={compartir}>Compartir / Imprimir</button>
         </div>
       </div>
     </div>
