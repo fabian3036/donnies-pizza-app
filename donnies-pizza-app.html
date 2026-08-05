@@ -208,6 +208,7 @@ function App(){
   const [costos, setCostos] = usePersistentState('donnies_costos', []);
   const [gastos, setGastos] = usePersistentState('donnies_gastos', []);
   const [inventario, setInventario] = usePersistentState('donnies_inventario', []); // {id, nombre, actual, minimo, maximo}
+  const [aperturaActual, setAperturaActual] = usePersistentState('donnies_apertura', null); // {fecha, monto, timestamp} o null si caja está cerrada
 
   // ---- formulario venta ----
   const [canal, setCanal] = useState(CANALES[0].id);
@@ -217,6 +218,7 @@ function App(){
 
   function agregarVenta(e){
     e.preventDefault();
+    if(!aperturaActual || aperturaActual.fecha !== todayISO()) return; // caja cerrada: no se registran ventas
     if(!monto || Number(monto) <= 0) return;
     const now = new Date();
     const item = {
@@ -274,9 +276,10 @@ function App(){
           canal={canal} setCanal={setCanal} monto={monto} setMonto={setMonto}
           nota={nota} setNota={setNota} metodoPago={metodoPago} setMetodoPago={setMetodoPago}
           agregarVenta={agregarVenta}
+          aperturaActual={aperturaActual} setAperturaActual={setAperturaActual}
           ventas={ventas} setVentas={setVentas} metrics={metrics}
         />}
-        {tab === 'mas' && <Mas cierres={cierres} setCierres={setCierres} costos={costos} setCostos={setCostos} gastos={gastos} setGastos={setGastos} inventario={inventario} setInventario={setInventario} metrics={metrics} />}
+        {tab === 'mas' && <Mas cierres={cierres} setCierres={setCierres} costos={costos} setCostos={setCostos} gastos={gastos} setGastos={setGastos} inventario={inventario} setInventario={setInventario} ventas={ventas} aperturaActual={aperturaActual} setAperturaActual={setAperturaActual} metrics={metrics} />}
         {tab === 'config' && <Config adminPin={adminPin} setAdminPin={setAdminPin} onLock={()=>setUnlocked(false)} />}
       </div>
 
@@ -295,9 +298,18 @@ function App(){
   );
 }
 
-function Ventas({canal, setCanal, monto, setMonto, nota, setNota, metodoPago, setMetodoPago, agregarVenta, ventas, setVentas, metrics}){
+function Ventas({canal, setCanal, monto, setMonto, nota, setNota, metodoPago, setMetodoPago, agregarVenta, aperturaActual, setAperturaActual, ventas, setVentas, metrics}){
   const hoy = todayISO();
   const ventasHoy = ventas.filter(v=>v.fecha===hoy).sort((a,b)=>b.id-a.id);
+  const cajaAbiertaHoy = !!(aperturaActual && aperturaActual.fecha === hoy);
+
+  const [montoApertura, setMontoApertura] = useState('');
+  function abrirCaja(e){
+    e.preventDefault();
+    if(montoApertura === '' || Number(montoApertura) < 0) return;
+    setAperturaActual({fecha: todayISO(), monto: Number(montoApertura), timestamp: Date.now()});
+    setMontoApertura('');
+  }
 
   const [editId, setEditId] = useState(null);
   const [editCanal, setEditCanal] = useState('');
@@ -336,6 +348,23 @@ function Ventas({canal, setCanal, monto, setMonto, nota, setNota, metodoPago, se
   }
 
   return (<>
+    {!cajaAbiertaHoy ? (
+      <div className="card">
+        <h3>Caja cerrada</h3>
+        <div className="empty" style={{padding:'6px 0'}}>Abre la caja con el efectivo inicial para poder registrar ventas hoy.</div>
+        <form onSubmit={abrirCaja}>
+          <label>Efectivo inicial en caja</label>
+          <input type="number" inputMode="decimal" placeholder="0.00" value={montoApertura} onChange={e=>setMontoApertura(e.target.value)} />
+          <button className="primary" type="submit">Abrir Caja</button>
+        </form>
+      </div>
+    ) : (<>
+    <div className="card">
+      <div className="row">
+        <span>Caja abierta desde las {new Date(aperturaActual.timestamp).toLocaleTimeString('es-MX', {hour:'2-digit', minute:'2-digit'})}</span>
+        <span><b>{fmt(aperturaActual.monto)}</b> inicial</span>
+      </div>
+    </div>
     <div className="card">
       <h3>Registrar venta</h3>
       <form onSubmit={agregarVenta}>
@@ -356,6 +385,7 @@ function Ventas({canal, setCanal, monto, setMonto, nota, setNota, metodoPago, se
         <button className="primary" type="submit">Agregar venta</button>
       </form>
     </div>
+    </>)}
 
     <div className="stat-grid">
       <div className="stat"><div className="num">{fmt(metrics.totalHoy)}</div><div className="lbl">Ventas hoy</div></div>
@@ -443,7 +473,7 @@ function Ventas({canal, setCanal, monto, setMonto, nota, setNota, metodoPago, se
   </>);
 }
 
-function Mas({cierres, setCierres, costos, setCostos, gastos, setGastos, inventario, setInventario, metrics}){
+function Mas({cierres, setCierres, costos, setCostos, gastos, setGastos, inventario, setInventario, ventas, aperturaActual, setAperturaActual, metrics}){
   const [vista, setVista] = useState('registros'); // 'registros' | 'inventario'
   const [seccion, setSeccion] = useState('cierre');
   const [monto, setMonto] = useState('');
@@ -461,6 +491,16 @@ function Mas({cierres, setCierres, costos, setCostos, gastos, setGastos, inventa
     {id:'transferencia', label:'Transferencia'},
     {id:'tarjeta', label:'Tarjeta'},
   ];
+
+  // ---- efectivo esperado en caja: apertura + ventas en efectivo desde que se abrió ----
+  const efectivoInfo = useMemo(() => {
+    if(!aperturaActual) return {montoInicial:0, ventasEfectivo:0, efectivoEsperado:0};
+    const montoInicial = aperturaActual.monto;
+    const ventasEfectivo = ventas
+      .filter(v => v.fecha === aperturaActual.fecha && v.metodoPago === 'efectivo' && v.id >= aperturaActual.timestamp)
+      .reduce((sum, v) => sum + v.monto, 0);
+    return {montoInicial, ventasEfectivo, efectivoEsperado: montoInicial + ventasEfectivo};
+  }, [aperturaActual, ventas]);
 
   // ---- comparativo de cierres: este mes vs. mes pasado ----
   const cierresMetrics = useMemo(() => {
@@ -488,7 +528,14 @@ function Mas({cierres, setCierres, costos, setCostos, gastos, setGastos, inventa
     if(!monto) return;
     const item = {id:Date.now(), monto:Number(monto), desc, fecha: todayISO()};
     if(seccion==='gasto') item.categoria = categoria;
-    if(seccion==='cierre') setCierres(x=>[item,...x]);
+    if(seccion==='cierre'){
+      item.montoInicial = efectivoInfo.montoInicial;
+      item.ventasEfectivo = efectivoInfo.ventasEfectivo;
+      item.efectivoEsperado = efectivoInfo.efectivoEsperado;
+      item.diferencia = Number(monto) - efectivoInfo.efectivoEsperado;
+      setCierres(x=>[item,...x]);
+      setAperturaActual(null); // el cierre termina el turno de caja abierto
+    }
     if(seccion==='costo') setCostos(x=>[item,...x]);
     if(seccion==='gasto') setGastos(x=>[item,...x]);
     setMonto(''); setDesc(''); setCategoria('general');
@@ -551,6 +598,19 @@ function Mas({cierres, setCierres, costos, setCostos, gastos, setGastos, inventa
     </div>
 
     <div className="card">
+      <h3>Caja</h3>
+      {aperturaActual ? (
+        <>
+          <div className="row"><span>Caja abierta con</span><span><b>{fmt(aperturaActual.monto)}</b></span></div>
+          <div className="row"><span>Ventas en efectivo desde apertura</span><span><b>{fmt(efectivoInfo.ventasEfectivo)}</b></span></div>
+          <div className="row"><span>Efectivo esperado ahora</span><span><b>{fmt(efectivoInfo.efectivoEsperado)}</b></span></div>
+        </>
+      ) : (
+        <div className="empty" style={{padding:'6px 0'}}>Caja cerrada — ábrela desde la pestaña Ventas para empezar el turno.</div>
+      )}
+    </div>
+
+    <div className="card">
       <h3>Agregar registro</h3>
       <label>Tipo</label>
       <select value={seccion} onChange={e=>setSeccion(e.target.value)}>
@@ -565,7 +625,12 @@ function Mas({cierres, setCierres, costos, setCostos, gastos, setGastos, inventa
             {CATEGORIAS_GASTO.map(c => <option key={c.id} value={c.id}>{c.label}</option>)}
           </select>
         </>)}
-        <label>Monto</label>
+        {seccion === 'cierre' && (
+          <div className="row" style={{marginBottom:8}}>
+            <span>Efectivo esperado</span><span><b>{fmt(efectivoInfo.efectivoEsperado)}</b></span>
+          </div>
+        )}
+        <label>{seccion === 'cierre' ? 'Efectivo contado en caja' : 'Monto'}</label>
         <input type="number" inputMode="decimal" value={monto} onChange={e=>setMonto(e.target.value)} />
         <label>Descripción</label>
         <input type="text" value={desc} onChange={e=>setDesc(e.target.value)} placeholder="Ej. compra de gas, corte de turno..." />
@@ -603,6 +668,11 @@ function Mas({cierres, setCierres, costos, setCostos, gastos, setGastos, inventa
                 {tipo==='gasto' && it.categoria && it.categoria!=='general' && (
                   <span className="tag">{CATEGORIAS_GASTO.find(c=>c.id===it.categoria)?.label}</span>
                 )} {it.desc || '—'} <span style={{opacity:.5}}> · {it.fecha}</span>
+                {tipo==='cierre' && it.diferencia !== undefined && it.diferencia !== 0 && (
+                  <div style={{fontSize:12, marginTop:2, color: it.diferencia>0 ? '#1e8e3e' : 'var(--rojo)'}}>
+                    {it.diferencia>0 ? 'Sobrante' : 'Faltante'} de {fmt(Math.abs(it.diferencia))}
+                  </div>
+                )}
               </span>
               <span className="row-actions">
                 <b>{fmt(it.monto)}</b>
@@ -625,11 +695,18 @@ function TicketModal({it, onClose}){
   const fechaHora = new Date(it.id).toLocaleString('es-MX');
 
   async function compartir(){
-    const texto = "Donnie's Pizza\nTicket de cierre de caja\n\n" +
+    let texto = "Donnie's Pizza\nTicket de cierre de caja\n\n" +
       "Fecha: " + it.fecha + "\n" +
       "Registrado: " + fechaHora + "\n" +
-      "Descripción: " + (it.desc || '—') + "\n\n" +
-      "Total: " + fmt(it.monto) + "\n\nGracias";
+      "Descripción: " + (it.desc || '—') + "\n";
+    if(it.efectivoEsperado !== undefined){
+      texto += "\nEfectivo inicial: " + fmt(it.montoInicial) +
+        "\nVentas en efectivo: " + fmt(it.ventasEfectivo) +
+        "\nEfectivo esperado: " + fmt(it.efectivoEsperado) +
+        "\nEfectivo contado: " + fmt(it.monto) +
+        "\n" + (it.diferencia >= 0 ? 'Sobrante' : 'Faltante') + ": " + fmt(Math.abs(it.diferencia)) + "\n";
+    }
+    texto += "\nTotal: " + fmt(it.monto) + "\n\nGracias";
     if(navigator.share){
       try { await navigator.share({title: 'Ticket de cierre de caja', text: texto}); }
       catch(e){ /* el usuario canceló el compartir, no pasa nada */ }
@@ -653,6 +730,14 @@ function TicketModal({it, onClose}){
           <div className="ticket-row"><span>Fecha</span><span>{it.fecha}</span></div>
           <div className="ticket-row"><span>Registrado</span><span>{fechaHora}</span></div>
           <div className="ticket-row"><span>Descripción</span><span>{it.desc || '—'}</span></div>
+          {it.efectivoEsperado !== undefined && (<>
+            <div className="ticket-line"></div>
+            <div className="ticket-row"><span>Efectivo inicial</span><span>{fmt(it.montoInicial)}</span></div>
+            <div className="ticket-row"><span>Ventas en efectivo</span><span>{fmt(it.ventasEfectivo)}</span></div>
+            <div className="ticket-row"><span>Efectivo esperado</span><span>{fmt(it.efectivoEsperado)}</span></div>
+            <div className="ticket-row"><span>Efectivo contado</span><span>{fmt(it.monto)}</span></div>
+            <div className="ticket-row"><span>{it.diferencia >= 0 ? 'Sobrante' : 'Faltante'}</span><span>{fmt(Math.abs(it.diferencia))}</span></div>
+          </>)}
           <div className="ticket-line"></div>
           <div className="ticket-total">{fmt(it.monto)}</div>
           <div className="ticket-line"></div>
